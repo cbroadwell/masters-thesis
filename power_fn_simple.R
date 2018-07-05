@@ -1,5 +1,5 @@
 # Writing power function for simple case
-# Last updated: 2018-06-12
+# Last updated: 2018-07-02
 # Programmer: Carly Broadwell
 # Purpose:  Write a function to calculate the power for the 4 tests of interest
 # Parameters that can be varied:
@@ -19,10 +19,17 @@ source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/gen_sim_data_simple.R"
 # library(gee)
 # library(geepack)
 library(weights)
+library(ICCbin)
 
 #Updated 2018-06-12 becase data generation updated to be a matrix, not dataframe
 #Also updated because RW and I decided to do 2-sided p-values, not 1-sided as previously coded
 #Updated 2018-06-14 to use summary data, and weighted t-tests and permutation tests
+#Updated 2018-07-02 - switched back to dataframe and not matrix
+#                   - reorganized order of calculations
+#                   - better distinguish individual and summary-level analyses
+#                   - change calculation of weights for t-test
+
+#TO COME: weighted permutation test
 
 #library(tidyverse)
 
@@ -45,32 +52,47 @@ library(weights)
 power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
   
   #set up counters to collect pvals
-  c_ttest <- 0
-  c_wtd_ttest <- 0
+  c_ttest_ind <- 0
   c_glmm <- 0
   c_gee <- 0
+  c_ttest_cl <- 0
+  c_wtd_ttest_cl <- 0
   p_permtest <- 1:nreps #function written to have 1-sided pval
   
   #generate "nreps" datasets, carry out analyses, collect pvals in vectors
   for (z in 1:nreps){
-    dat <- generate_one_meas(N.clust = Nclust, clust.sizes = csizes, mu = u, tau.sd = sj, TE = trteff, p.trt = ptrt)
-    df.dat <- as.data.frame(dat)
-    cl.summary <- as.matrix(aggregate(y~ClusterID + x,data = dat, FUN = function(z) c(mn = mean(z), variance = abs(var(z)))))
-
+    #create individual-level dataset, and cluster-level dataset
+    df.dat <- generate_one_meas(N.clust = Nclust, clust.sizes = csizes, mu = u, tau.sd = sj, TE = trteff, p.trt = ptrt)
+    cl.summary <- as.matrix(aggregate(y~ClusterID + x,data = dat, FUN = function(z) c(mn = mean(z), variance = abs(var(z)), size = length(z))))
+    
+    #calculate ICC for weighted t-test - for now using ANOVA method bc code exists
+    icc_est <- as.numeric(iccbin(cid = ClusterID, y = y, data = df.dat, method = "aov", ci.type = "aov")$estimates[2])
+    #create weights from summary data and ICC
+    wts <- cl.summary[,5] / (1 + icc_est*cl.summary[,5])
+    
+    
+    #individual-level analyses
+      #individual-level t-test
     if (t.test(df.dat$ y~ df.dat$x)$p.value < 0.05){
-      c_ttest <- c_ttest + 1
+      c_ttest_ind <- c_ttest_ind + 1
     }
-    
-    if (as.numeric(wtd.t.test(x = cl.summary[,3][cl.summary[,2]==1] , y = cl.summary[,3][cl.summary[,2]==0], weight = (1/cl.summary[,4][cl.summary[,2]==1]), weighty = (1/cl.summary[,4][cl.summary[,2]==0]), samedata = FALSE)$coefficients[3]) < 0.05){
-      c_wtd_ttest <- c_wtd_ttest + 1
-    }
-    
+      #GLMM
     if (as.numeric(summary(glmer(y ~ x + (1 | ClusterID), data = df.dat, family = binomial))$coefficients[2,4]) < 0.05){
       c_glmm <- c_glmm + 1
     }
-    
+      #GEE
     if (as.numeric(summary(geeglm(y ~ x, family=binomial, data = df.dat, id = ClusterID))$coefficients[2,4]) < 0.05 ){
       c_gee <- c_gee + 1
+    }
+    
+    #cluster-level analyses  
+      #unweighted t-test
+    if (as.numeric(t.test(cl.summary[,3][cl.summary[,2]==1] , cl.summary[,3][c.summary[,2]==0])$p.value < 0.05)){
+      c_ttest_cl <- c_ttest_cl + 1
+    }
+      #weighted t-test
+    if (as.numeric(wtd.t.test(x = cl.summary[,3][cl.summary[,2]==1] , y = cl.summary[,3][cl.summary[,2]==0], weight = (wts[cl.summary[,2]==1]), weighty = (1/cl.summary[,4][cl.summary[,2]==0]), samedata = FALSE)$coefficients[3]) < 0.05){
+      c_wtd_ttest_cl <- c_wtd_ttest_cl + 1
     }
     
     p_permtest[z] <- as.numeric(perm_test(dat, "ClusterID", "y", "x", nperms)[5])
@@ -79,9 +101,9 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
   #make vector of counts
   counts.vec <- c(c_ttest,c_wtd_ttest,c_glmm,c_gee)
   power.vec <- 1:5
-
+  
   power.vec[1:4] <- counts.vec / nreps
-
+  
   
   #add the permutation test pvals
   power.vec[5] <- mean(as.numeric((p_permtest < 0.05)))
@@ -91,9 +113,15 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
   return(power.vec)
 }
 
- #null_test <- power_fn_simple(10,nc,cs,m_u,s,te,pt,1000)
- #weak_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.2),pt,1000)
- #strong_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.5),pt,1000)
+df.test <- generate_one_meas(N.clust = Nclust, clust.sizes = csizes, mu = u, tau.sd = sj, TE = log(1.5), p.trt = ptrt)
+#cl.summary.test <- as.matrix(aggregate(y~ClusterID + x,data = df.test, FUN = function(z) c(mn = mean(z), variance = abs(var(z)), size = length(z))))
+
+#null_test <- power_fn_simple(10,nc,cs,m_u,s,te,pt,1000)
+#weak_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.2),pt,1000)
+#strong_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.5),pt,1000)
+
+#gee.fit <- geeglm(y ~ x, family=binomial, data = test.df, id = ClusterID)
+#summary(gee.fit)
 
 ####OLD CODE
 
