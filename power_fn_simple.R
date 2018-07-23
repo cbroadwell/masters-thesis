@@ -69,8 +69,8 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
     x1.dat <- cl.summary.dat[which(cl.summary.dat$x == 1),]
     
     #compute ICC by treatment arm
-    icc_est_x0 <- getICC(x0.dat,csizes_x0)[2]
-    icc_est_x1 <- getICC(x1.dat,csizes_x1)[2]
+    icc_est_x0 <- getICC(x0.dat,csizes_x0,"y.mn")[2]
+    icc_est_x1 <- getICC(x1.dat,csizes_x1,"y.mn")[2]
     
     icc_est <- 1:Nclust
     icc_est[cl.summary.dat$x == 0] <- icc_est_x0
@@ -124,15 +124,26 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
   return(power.vec)
 }
 
- Nclust <- 14
- csizes <- c(643,271,208,159,141,189,220,246,236,115,204,1320,812,195)
+ nc <- 14
+ cs <- c(643,271,208,159,141,189,220,246,236,115,204,1320,812,195)
  m_u <- log(.53/.47)
- sj <- sqrt(0.01)
- ptrt <- 0.5
+ s <- sqrt(0.1728)
+ pt <- 0.5
  nperms <- 1000
+ testdat <- generate_one_meas(nc, cs, m_u, s, log(1.01), pt)
+ testsum <- as.data.frame(as.matrix(aggregate(y~ClusterID + x,data = testdat, FUN = function(z) c(mn = mean(z), variance = abs(var(z)), size = length(z)))))
+ #calculate ICC for weighted t-test - using function
+ #need to know sizes of clusters with x = 0 and x = 1, separate data by treatment arm
+ csizesx0 <- testsum$y.size[testsum$x == 0]
+ csizesx1 <- testsum$y.size[testsum$x == 1]
+ x0dat <- testsum[which(testsum$x == 0),]
+ x1dat <- testsum[which(testsum$x == 1),]
  
+ #compute ICC by treatment arm
+ icc_est_x0 <- getICC(x0dat,csizesx0,"y.mn")[2]
+ icc_est_x1 <- getICC(x1.dat,csizes_x1)[2]
  
- null_test <- power_fn_simple(10,nc,cs,m_u,s,log(1),pt,1000)
+ null_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.01),pt,1000)
  weak_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.2),pt,1000)
  strong_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.5),pt,1000)
 
