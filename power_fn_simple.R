@@ -14,11 +14,11 @@
 #     nperm: number of permutations for permutation test
 
 
-
-source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/perm_test.R")
 source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/gen_sim_data_simple.R")
-source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/weighted_perm_test.R")
 source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/getICC.R")
+source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/perm_test.R")
+source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/weighted_perm_test.R")
+
 # library(lme4)
 # library(gee)
 # library(geepack)
@@ -79,6 +79,9 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
     #create weights from summary data and ICC
     wts <- cl.summary.dat$y.size / (1 + icc_est*(cl.summary.dat$y.size - 1))
     
+    #overall ICC to use in weighted permutation tests
+    icc_overall <- getICC(cl.summary.dat, csizes, "y.mn")[2]
+    
     
     #individual-level analyses
       
@@ -91,7 +94,7 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
       c_gee <- c_gee + 1
     }
       #weighted permutation test
-    if (as.numeric(perm.gee(df.dat$y ~ 1, df.dat$ClusterID, df.dat$x, binomial)$pval.perm) < 0.05) {
+    if (as.numeric(perm.gee(df.dat$y ~ 1, df.dat$ClusterID, df.dat$x, binomial, rho = icc_overall)$pval.perm) < 0.05) {
       c_wtd_perm_test = c_wtd_perm_test + 1
     }
     
@@ -119,33 +122,24 @@ power_fn_simple <- function(nreps,Nclust,csizes,u,sj,trteff,ptrt,nperms){
   power.vec[6] <- mean(as.numeric((p_permtest < 0.05)))
   
   #name the columns of the power vector
-  #names(power.vec) <- c("GLMM","GEE","tTest","WtdtTest","WtdPermTest","PermTest")
+  names(power.vec) <- c("GLMM","GEE","tTest","WtdtTest","WtdPermTest","PermTest")
   
   return(power.vec)
 }
 
- nc <- 14
- cs <- c(643,271,208,159,141,189,220,246,236,115,204,1320,812,195)
- m_u <- log(.53/.47)
- s <- sqrt(0.1728)
- pt <- 0.5
- nperms <- 1000
- testdat <- generate_one_meas(nc, cs, m_u, s, log(1.01), pt)
- testsum <- as.data.frame(as.matrix(aggregate(y~ClusterID + x,data = testdat, FUN = function(z) c(mn = mean(z), variance = abs(var(z)), size = length(z)))))
- #calculate ICC for weighted t-test - using function
- #need to know sizes of clusters with x = 0 and x = 1, separate data by treatment arm
- csizesx0 <- testsum$y.size[testsum$x == 0]
- csizesx1 <- testsum$y.size[testsum$x == 1]
- x0dat <- testsum[which(testsum$x == 0),]
- x1dat <- testsum[which(testsum$x == 1),]
- 
- #compute ICC by treatment arm
- icc_est_x0 <- getICC(x0dat,csizesx0,"y.mn")[2]
- icc_est_x1 <- getICC(x1.dat,csizes_x1)[2]
- 
- null_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.01),pt,1000)
- weak_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.2),pt,1000)
- strong_test <- power_fn_simple(10,nc,cs,m_u,s,log(1.5),pt,1000)
+ # nc <- 14
+ # cs <- c(643,271,208,159,141,189,220,246,236,115,204,1320,812,195)
+ # m_u <- log(.53/.47)
+ # s <- sqrt(0.1728)
+ # pt <- 0.5
+ # nperms <- 1000
+ # testdat <- generate_one_meas(nc, cs, m_u, s, log(1.01), pt)
+ # testsum <- as.data.frame(as.matrix(aggregate(y~ClusterID + x,data = testdat, FUN = function(z) c(mn = mean(z), variance = abs(var(z)), size = length(z)))))
+ # 
+ # 
+ # null_test <- power_fn_simple(5,nc,cs,m_u,s,log(1.01),pt,1000)
+ # weak_test <- power_fn_simple(5,nc,cs,m_u,s,log(1.2),pt,1000)
+ # strong_test <- power_fn_simple(5,nc,cs,m_u,s,log(1.7),pt,1000)
 
  # 
 # 
