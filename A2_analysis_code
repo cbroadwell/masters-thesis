@@ -1,0 +1,65 @@
+#### A2 Analysis Code
+### For running on HMS Computing Cluster
+### Author: Carly Broadwell
+### Created: 2018-07-24
+### Updated:
+
+# Load Packages
+library(lme4)
+library(gee)
+library(geepack)
+library(weights)
+library(parallel)
+
+# Source Functions
+# Rscripts will all be stored in home directory
+source("./gen_sim_data_simple.R")
+source("./getICC.R")
+source("./weighted_perm_test.R")
+source("./perm_test.R")
+source("./power_fn_simple.R")
+
+# Set parameters
+nreps <- 500
+NC <- 14
+cs <- c(643,271,208,159,141,189,220,246,236,115,204,1320,812,195)
+u <- log(.53/.47)
+sj <- sqrt(0.1768)
+ptrt <- 0.5
+nperms <- 1000
+
+# Initiate parallelization
+numCores <- detectCores() 
+cl <- makeCluster(numCores)
+
+# Import parameters into parallel
+clusterExport(cl, 
+              c("nreps","NC","cs","u","sj","ptrt","nperms","allperms","generate_one_meas","get.rho.aov","get.subset","getICC","one.perm","perm_test","perm.gee","power_fn_simple","pre_perm_test"))
+# and libraries
+clusterEvalQ(cl, 
+             c(library(lme4),library(gee),library(geepack),library(weights)))
+
+# List on which to paralellize (treatment effect)
+trteff <- as.list(log(seq(1,2,0.01)))
+
+# Function call
+results <- parLapply(cl,trteff,
+          power_fn_simple,
+          nreps = nreps, Nclust = NC, csizes = cs, u = u, sj = sj, ptrt = ptrt, nperms = nperms)
+stopCluster(cl)
+
+# Save results
+results.mat <- matrix(NA, nrow = length(trteff), ncol = 7)
+for (i in 1:length(trteff)){
+  results.mat[i,1] <- as.numeric(trteff[i])
+  results.mat[i,2:7] <- as.vector(results[[i]])
+}
+colnames(results.mat) <- c("TrtEff","GLMM","GEE","tTest","WtdtTest","WtdPermTest","PermTest")
+save(results, file = paste0(getwd(),"/Results/a2/a2_data_",Sys.Date(),".Rdata"))
+write.csv(results.mat, file = paste0(getwd(),"/Results/a2/a2_power_",Sys.Date(),".csv"))
+
+# Write csv of parameters for records
+params <- list(nreps, NC, "c(643,271,208,159,141,189,220,246,236,115,204,1320,812,195)", u, sj, ptrt, nperms, "log(seq(1,2,0.01))")
+names(params) <- c("Replicates", "NumberOfClusters","ClusterSizes","BaselineLogOdds_mu","BetweenClustStdDev_tau","PropTreated","NumPerms","Call_for_TrtEffect")
+write.csv(params, file = paste0(getwd(),"/Results/a2/a2_params_",Sys.Date(),".csv"))
+
