@@ -49,12 +49,12 @@ perm.gee <- function(formula, clus, rand, fam, rho)
   # if (p!=2) rho <- get.rho.aov(the.data,T)
   
   #Compute scores for each cluster without regard to treatment assignment
-  cat("Computing scores:	1...")
+  #cat("Computing scores:	1...")
   scores <- NULL
   
   for(i in unique(clus)) 
   {
-    cat(i)
+    #cat(i)
     j <- clus == i
     m <- sum(j)
     if (p==1)
@@ -82,7 +82,7 @@ perm.gee <- function(formula, clus, rand, fam, rho)
   
   scores1 <- scores
   #Compute scores again, but use cluster sizes as weights.
-  cat("3...")
+  #cat("3...")
   scores2 <- NULL
   for(i in unique(clus)) 
   {
@@ -93,7 +93,7 @@ perm.gee <- function(formula, clus, rand, fam, rho)
     scores2 <- cbind(scores2, U)
   }
   #Compute scores one more time, but use no weights
-  cat("4...","\n")
+  #cat("4...","\n")
   scores3 <- NULL
   for(i in unique(clus)) 
   {
@@ -110,7 +110,7 @@ perm.gee <- function(formula, clus, rand, fam, rho)
   #clusters is small enough
   if (k <=13)
   { 
-    cat("Computing perm distns...\n")
+    #cat("Computing perm distns...\n")
     perm.trt <- allperms(k)	#Permutations for treated clusters
     perm.trt <- perm.trt*2 - 1	#Change (T, F) to (+1, -1)
     
@@ -124,7 +124,7 @@ perm.gee <- function(formula, clus, rand, fam, rho)
   #If there are too many clusters, do a subsample of the permutations
   if (k > 13)
   {
-    cat("Computing (approx) perm distns...\n")
+    #cat("Computing (approx) perm distns...\n")
     perms <- get.subset(2000, k)
   }
   
