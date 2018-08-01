@@ -4,8 +4,8 @@
 #                 07-13-2018  analyses: matched t-test, 2 types glmm, conditional gee, matched perm.test
 #                 07-31-2018  removed random cluster effect from stratified GLMM (left it in metaanalysis as specified in Thompson paper)
 
-source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/gen_matched_simple.R")
-source("/Users/carlyb/Desktop/Thesis/HCV_Simulation_Study/matched_perm_test.R")
+source(paste0(getwd(),"/gen_matched_simple.R"))
+source(paste0(getwd(),"/matched_perm_test.R"))
 
 library(lme4)
 library(geepack)
