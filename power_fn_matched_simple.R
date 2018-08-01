@@ -30,7 +30,7 @@ power_fn_matched_simple <- function(nreps,nc,c.size,u,s,te,ta,nperms){
     }
     
     #stratified GLMM
-    if (as.numeric(summary(glmer(y ~ x + strata(MatchID), data = dat, family = binomial))$coefficients[2,4]) < 0.05) {
+    if (as.numeric(summary(glmer(y ~ x + strata(MatchID) + (1 | MatchID), data = dat, family = binomial))$coefficients[2,4]) < 0.05) {
       c_glmm_strat <- c_glmm_strat + 1
     }
     
